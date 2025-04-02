@@ -1,19 +1,16 @@
-int VIDEO_ADDRESS_OFFSET = 0x0;
+#define VGA_WIDTH 0x28 // weird value actually
+#define VGA_WIDTH_alt 0xa0 // for some reason I first ended up with this number.
+
+int VIDEO_ADDRESS_OFFSET = 0x0; // video related variables
 char* VIDEO_POINTER = (char*)0xb8000;
 int BACKROUND_COLOR = 0x8;
 
+//function declarations
+int findCommand(char command[], int length);
+
+
 
 // hardware commands
-
-// doesnt work
-static inline int interrupts_enabled() {
-    unsigned long flags;
-    asm volatile ( "pushf\n\t"
-        "pop %0"
-        : "=g"(flags)
-    );
-    return (flags & (1 << 9)) ? 1 : 0;
-}
 
 
 void outd(short port, int dword)
@@ -38,6 +35,47 @@ char inb(short port)
 
     return res;
 }
+
+static inline void outb(unsigned int port, unsigned int val) // stole this from osdev wiki
+{
+    __asm__ volatile ( "outb %b0, %w1" : : "a"(val), "Nd"(port) : "memory");
+    /* There's an outb %al, $imm8 encoding, for compile-time constant port numbers that fit in 8b. (N constraint).
+     * Wider immediate constants would be truncated at assemble-time (e.g. "i" constraint).
+     * The  outb  %al, %dx  encoding is the only option for all other cases.
+     * %1 expands to %dx because  port  is a uint16_t.  %w1 could be used if we had the port number a wider C type */
+}
+
+void enable_cursor(unsigned int cursor_start,unsigned int cursor_end)
+{
+	outb(0x3D4, 0x0A);
+	outb(0x3D5, (inb(0x3D5) & 0xC0) | cursor_start);
+
+	outb(0x3D4, 0x0B);
+	outb(0x3D5, (inb(0x3D5) & 0xE0) | cursor_end);
+}
+
+void update_cursor_tool(int x, int y)
+{
+	unsigned int pos = y * VGA_WIDTH + x;
+
+	outb(0x3D4, 0x0F);
+	outb(0x3D5, (unsigned int) (pos & 0xFF));
+	outb(0x3D4, 0x0E);
+	outb(0x3D5, (unsigned int) ((pos >> 8) & 0xFF));
+}
+
+void update_cursor()
+{
+	unsigned int pos = VIDEO_ADDRESS_OFFSET/2;
+
+	outb(0x3D4, 0x0F);
+	outb(0x3D5, (unsigned int) (pos & 0xFF));
+	outb(0x3D4, 0x0E);
+	outb(0x3D5, (unsigned int) ((pos >> 8) & 0xFF));
+}
+
+
+
 
 unsigned char symbolTable[256];
 void initKeyboard(){
@@ -100,7 +138,7 @@ int DEBUG_keyIn(){
 
 int strlen(char str[]){
     int len = 0;
-    while(str[len] != '\0'){
+    while(str[len] != '\0' || str[len] != 0x0){
         len++;
     }
     return len;
@@ -109,7 +147,7 @@ int strlen(char str[]){
 
 void clearScreen(){
     VIDEO_ADDRESS_OFFSET = 0x0;
-    for(int i = 0; i < 0xa0*0xa0; i++){
+    for(int i = 0; i < VGA_WIDTH*(VGA_WIDTH*2); i++){
         VIDEO_POINTER[VIDEO_ADDRESS_OFFSET] = 0;
         VIDEO_POINTER[VIDEO_ADDRESS_OFFSET+1] = (BACKROUND_COLOR<<4)|(0xf);
         VIDEO_ADDRESS_OFFSET+=2;
@@ -132,13 +170,14 @@ void print(char str[]){
     int len = strlen(str);
     for(int i = 0; i < len; i++){
         if(str[i] == '\n'){
-            VIDEO_ADDRESS_OFFSET += 0xa0 - (VIDEO_ADDRESS_OFFSET % 0xa0);
+            VIDEO_ADDRESS_OFFSET += VGA_WIDTH_alt - (VIDEO_ADDRESS_OFFSET % VGA_WIDTH_alt);
             continue;
         }
         VIDEO_POINTER[VIDEO_ADDRESS_OFFSET] = (str[i]);
         VIDEO_POINTER[VIDEO_ADDRESS_OFFSET+1] = (BACKROUND_COLOR<<4)|(0xf);
         VIDEO_ADDRESS_OFFSET+=2;
     }
+    update_cursor();
 }
 
 // print values
@@ -170,7 +209,7 @@ void printOver(char str[], unsigned int offset, int length){
     VIDEO_ADDRESS_OFFSET = offset*2;
     for(int i = 0; i < len; i++){
         if(str[i] == '\n'){
-            VIDEO_ADDRESS_OFFSET += 0xa0 - (VIDEO_ADDRESS_OFFSET % 0xa0);
+            VIDEO_ADDRESS_OFFSET += VGA_WIDTH_alt - (VIDEO_ADDRESS_OFFSET % VGA_WIDTH_alt);
             continue;
         }
         VIDEO_POINTER[VIDEO_ADDRESS_OFFSET] = (str[i]);
@@ -215,7 +254,7 @@ void sleep(float sleep_length){ // how long to sleep in seconds
     }
 }
 
-char commandBuffer[0xa0];
+char commandBuffer[VGA_WIDTH];
 int commandBuffer_length = 0;
 
 void clean_commandBuffer(){
@@ -224,6 +263,9 @@ void clean_commandBuffer(){
     }
     commandBuffer_length = 0;
 }
+
+
+
 
 int strCompare(char* str1, char* str2){
     unsigned int j = 0;
@@ -254,14 +296,63 @@ void cmd_welcome(){
     print("| welcome to unsatisfactoryOS | The KERNEL has arrived |\n");
     print("+-----------------------------+------------------------+\n");
 }
-
-
-void findCommand(char command[], int length){
-    if(length == 0) {print("Command not found"); return;}
-    if(strCompare(command, "hello ")) {cmd_hello(); return;}
-    if(strCompare(command, "clear ")) {cmd_clear(); return;}
-    print("Command not found");
+void cmd_do(char command[], int length){
+    int command_count = 0;
+    for(int i = 0; i < length; i++){ // we go though the whole command
+        if(command[i-1]==';'){
+            char commandBuffer_do[length-i];
+            int commandBuffer_do_length = 0;
+            for(int j = i; j < length; j++){ // circle through the current command
+                if(command[j]!=' ' && command[j]!=';'){
+                    commandBuffer_do[commandBuffer_do_length] = command[j];
+                    commandBuffer_do_length++;
+                }
+                if(command[j]==';'){ // reached the end of the command, time to execute!
+                    if(findCommand(commandBuffer_do, commandBuffer_do_length)){
+                        command_count++;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    if(command_count == 0){
+        print("No commands found\n");
+    }
 }
+char cmd_help_hello[] = "Says hi!\n";
+char cmd_help_clear[] = "Clears the screen\n";
+char cmd_help_welcome[] = "Displays welcome text\n";
+char cmd_help_do[] = "Execute commands in a row. \nFor example, (do; write; welcome;) will execute the write and welcome commands. \nIt's important to strictly follow the format: [do;]+(space)+COMMAND_NAME+[;]\n";
+char cmd_help_help[] = "lol, you're seriously asking\n";
+void cmd_help(char command[], int length){
+    if(length<=5) print("\nCommands:\nhello\nwelcome\ndo;\nclear\nFor additional information type help COMMAND_NAME\n");
+    if(length>5){
+        char commandBuffer_help[length-5];
+        for(int i = 5; i < length; i++){
+            commandBuffer_help[i-5] = command[i];
+        }
+        //print(commandBuffer_help);
+        if(strCompare(commandBuffer_help, "hello ")) {print(cmd_help_hello); return;}
+        if(strCompare(commandBuffer_help, "clear ")) {print(cmd_help_clear); return;}
+        if(strCompare(commandBuffer_help, "welcome ")) {print(cmd_help_welcome); return;}
+        if(strCompare(commandBuffer_help, "do;")) {print(cmd_help_do); return;}
+        if(strCompare(commandBuffer_help, "help")) {print(cmd_help_help); return;}
+    }
+}
+
+
+int findCommand(char command[], int length){
+    if(length == 0) {print("\nCommand not found\n"); return 1;}
+    if(strCompare(command, "hello ")) {cmd_hello(); return 1;}
+    if(strCompare(command, "clear ")) {cmd_clear(); return 1;}
+    if(strCompare(command, "welcome ")) {cmd_welcome(); return 1;}
+    if(strCompare(command, "do;")) {cmd_do(command, length); return 1;}
+    if(strCompare(command, "help")) {cmd_help(command, length); return 1;}
+    print("Command not found");
+    return 0;
+}
+
 
 
 
@@ -270,13 +361,11 @@ char oldKey[2] = {0x0};
 extern "C" void main(){
     initKeyboard();
     clearScreen();
+    enable_cursor(14, 15);
     cmd_welcome();
-    //print("The KERNEL has arrived\n");
     while(1){
         char currentKey[2] = {keyIn()};
         
-        
-
 
         if(currentKey[0] == 0x1b) break; // esc key
 
@@ -291,7 +380,13 @@ extern "C" void main(){
             switch (currentKey[0])
             {
             case 0x8:// backspace
-                print("BACK");
+                VIDEO_ADDRESS_OFFSET-=2;
+                printOver(" ", VIDEO_ADDRESS_OFFSET/2, 1);
+                VIDEO_ADDRESS_OFFSET-=2;
+                commandBuffer_length--;
+                commandBuffer[commandBuffer_length] = 0x0;
+                update_cursor();
+
                 break;
             case 0x1c: // enter
                 print("\n");
@@ -308,12 +403,6 @@ extern "C" void main(){
             }
 
         }
-        
-        
-        //printOver(currentKey, 40, 2);
-        //printfOver(DEBUG_keyIn(), 23, 2);
-        //sleep(1);
-        //clearScreen();
     }
     return;
 }

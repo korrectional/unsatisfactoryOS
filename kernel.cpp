@@ -18,7 +18,17 @@ void clean_commandBuffer(){
     commandBuffer_length = 0;
 }
 
+void backspace(){
+    VIDEO_ADDRESS_OFFSET-=2;
+    printOver(" ", VIDEO_ADDRESS_OFFSET/2, 1);
+    VIDEO_ADDRESS_OFFSET-=2;
+    commandBuffer_length--;
+    commandBuffer[commandBuffer_length] = 0x0;
+    update_cursor();
+}
 
+unsigned int backspaceTimer = 0;
+bool backspaceIceBreak = 0;
 char oldKey[2] = {0x0};
 extern "C" void main(){
     initKeyboard();
@@ -33,7 +43,7 @@ extern "C" void main(){
 
         
         if(currentKey[0] == 0x0 && currentKey[0] != oldKey[0]){
-            oldKey[0] = currentKey[0];
+            oldKey[0] = 0x0; // setting oldKey without entering the switch
         }
         if(currentKey[0] != 0x0 && currentKey[0] != oldKey[0]){
             oldKey[0] = currentKey[0];
@@ -42,13 +52,9 @@ extern "C" void main(){
             switch (currentKey[0])
             {
             case 0x8:// backspace
-                VIDEO_ADDRESS_OFFSET-=2;
-                printOver(" ", VIDEO_ADDRESS_OFFSET/2, 1);
-                VIDEO_ADDRESS_OFFSET-=2;
-                commandBuffer_length--;
-                commandBuffer[commandBuffer_length] = 0x0;
-                update_cursor();
-
+                backspace();
+                backspaceTimer = 0;
+                backspaceIceBreak = 0; // check backspace loop below
                 break;
             case 0x1c: // enter
                 print("\n");
@@ -63,8 +69,25 @@ extern "C" void main(){
                 print(currentKey);
                 break;
             }
-
+            
+            
         }
+        else if(currentKey[0] == 0x8 && currentKey[0] == oldKey[0]) // backspace loop
+        {
+            backspaceTimer++;
+            
+            if(backspaceTimer>=500000 && backspaceIceBreak == 1){
+                backspace();
+                backspaceTimer=0;
+            }
+            else if(backspaceTimer>=3000000 && backspaceIceBreak == 0){
+                backspaceIceBreak = 1;
+                // after a longer delay, the ice breaks allowing for the fast backspace loop to begin
+                // basically, only after user holds backspace for a while that it starts quickly deleting letters
+            }
+        }
+
+
     }
     return;
 }

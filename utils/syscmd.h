@@ -16,7 +16,7 @@ int findCommand(char command[], int length);
 // here are the commands that exist as utilities to be used directly in code
 void sleep(float sleep_length){ // how long to sleep in seconds
     unsigned int ticks = (unsigned int)(200000000 * sleep_length);
-    while(ticks>0){
+    while(ticks>=0){
         ticks--;
     }
 }
@@ -39,10 +39,12 @@ void cmd_clear(){
     clearScreen();
 }
 void cmd_welcome(){
-    print("+-----------------------------+------------------------+\n");
+    print("\n+-----------------------------+------------------------+\n");
     print("| welcome to unsatisfactoryOS | The KERNEL has arrived |\n");
     print("+-----------------------------+------------------------+\n");
+    print("Type [help] to get help\n\n");
 }
+
 void cmd_do(char command[], int length){
     int command_count = 0;
     for(int i = 0; i < length; i++){ // we go though the whole command

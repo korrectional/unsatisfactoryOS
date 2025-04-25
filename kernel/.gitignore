@@ -1,5 +1,3 @@
-.env
-Binaries/
 /compile_commands.json
 /.cache
 /freestnd-c-hdrs
@@ -7,5 +5,3 @@ Binaries/
 /src/limine.h
 /bin-*
 /obj-*
-template-x86_64.iso
-kernel-deps

@@ -2,7 +2,9 @@
 #include "utils/sysVGATMstr.h"
 #include "drivers/keyboard.h"
 #include "drivers/vga_text_mode.h"
+#include "drivers/vga_video_mode.h"
 #include "utils/syscmd.h"
+
 
 
 float time = 0.0;
@@ -19,6 +21,7 @@ void clean_commandBuffer(){
 }
 
 void backspace(){
+    return;
     VIDEO_ADDRESS_OFFSET-=2;
     printOver(" ", VIDEO_ADDRESS_OFFSET/2, 1);
     VIDEO_ADDRESS_OFFSET-=2;
@@ -32,9 +35,9 @@ bool backspaceIceBreak = 0;
 char oldKey[2] = {0x0};
 extern "C" void main(){
     initKeyboard();
-    clearScreen();
-    enable_cursor(14, 15);
-    cmd_welcome();
+    //clearScreen();
+    //enable_cursor(14, 15);
+    //cmd_welcome();
     while(1){
         char currentKey[2] = {keyIn()};
         

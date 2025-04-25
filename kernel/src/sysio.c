@@ -5,9 +5,6 @@ Why did I do it?
 because I have no idea how to proprely link stuff
 */
 
-
-#ifndef SYSIO_H
-#define SYSIO_H
 void outd(short port, int dword)
 {
     asm("mov %1, %%eax;"
@@ -31,7 +28,7 @@ char inb(short port)
     return res;
 }
 
-static inline void outb(unsigned int port, unsigned int val) // stole this from osdev wiki
+inline void outb(unsigned int port, unsigned int val) // stole this from osdev wiki
 {
     __asm__ volatile ( "outb %b0, %w1" : : "a"(val), "Nd"(port) : "memory");
     /* There's an outb %al, $imm8 encoding, for compile-time constant port numbers that fit in 8b. (N constraint).
@@ -40,5 +37,8 @@ static inline void outb(unsigned int port, unsigned int val) // stole this from 
      * %1 expands to %dx because  port  is a uint16_t.  %w1 could be used if we had the port number a wider C type */
 }
 
-
-#endif
+void hcf(void) {
+    for (;;) {
+        asm ("hlt");
+    }
+}

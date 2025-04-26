@@ -31,9 +31,6 @@ void initKeyboard(){
     symbolTable[42] = 0x2a; // left shift
     symbolTable[54] = 0x36; // right shift
     symbolTable[29] = 0x1d; // left ctrl
-
-
-
 }
 
 

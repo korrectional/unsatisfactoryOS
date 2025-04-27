@@ -4,6 +4,8 @@
         "sysio.h": "c",
         "vga_text_mode.h": "c",
         "keyboard.h": "c",
-        "syscmd.h": "c"
+        "syscmd.h": "c",
+        "vga_video_mode.h": "c",
+        "sysstr.h": "c"
     }
 }

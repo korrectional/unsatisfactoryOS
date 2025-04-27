@@ -1,5 +1,4 @@
 #include "utils/sysio.h"
-#include "utils/sysVGATMstr.h"
 #include "drivers/keyboard.h"
 #include "drivers/vga_text_mode.h"
 #include "drivers/vga_video_mode.h"

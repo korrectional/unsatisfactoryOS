@@ -2,10 +2,13 @@
 #define SYSCMD_H
 
 #include "sysio.h"
-#include "sysVGATMstr.h"
 #include "math.h"
 #include "../drivers/keyboard.h"
-#include "../drivers/vga_text_mode.h"
+#include "../utils/sysvga.h"
+
+
+#define WHITE 0xffffff
+#define BLACK 0x000000
 
 // gotta predefine this one
 int findCommand(char command[], int length);
@@ -33,10 +36,10 @@ void sleep(float sleep_length){ // how long to sleep in seconds
 // here are defined all the commands in unsatisfactoryOS!!!
 
 void cmd_hello(){
-    print("Wasup dumass");
+    print("\nWasup dumass");
 }
 void cmd_clear(){
-    clearScreen();
+    clearShell();
 }
 void cmd_welcome(){
     print("\n+-----------------------------+------------------------+\n");
@@ -94,22 +97,24 @@ void cmd_sleep(char command[], int length){ // how long to sleep in seconds THIS
     for(int i = 6; i < length; i++){ // itenerate though the size of the number
         time2sleep += (command[i] - '0') * powi(10, length-i-1);
     }
-    print("sleeping for: ");
-    printf(time2sleep);
+    print("\nsleeping for: ");
+    //printf(time2sleep);
     sleep(time2sleep);
 }
 
 
+
 // this tries to find the command after it is typed
 int findCommand(char command[], int length){
-    if(length == 0) {print("\nCommand not found\n"); return 1;}
+    if(length == 0) {print("Command not found"); return 1;}
     if(strCompare(command, "hello ")) {cmd_hello(); return 1;}
-    if(strCompare(command, "clear ")) {cmd_clear(); return 1;}
+    if(strCompare(command, "clear ")) {cmd_clear(); return 5;}
     if(strCompare(command, "welcome ")) {cmd_welcome(); return 1;}
     if(strCompare(command, "do;")) {cmd_do(command, length); return 1;}
     if(strCompare(command, "help")) {cmd_help(command, length); return 1;}
     if(strCompare(command, "sleep ")) {cmd_sleep(command, length); return 1;}
-    print("\nCommand not found\n");
+    print("\nCommand not found");
+
     return 0;
 }
 
